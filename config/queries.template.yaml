@@ -1,0 +1,134 @@
+# SQLabelForge Query Definitions
+# Copy this file to queries.yaml and customize for your use case
+
+queries:
+  # Example 1: Simple SELECT query
+  get_customers: |
+    SELECT
+        CustomerID,
+        CustomerName,
+        ContactName,
+        Country
+    FROM Customers
+    WHERE Country = :country
+    ORDER BY CustomerName
+
+  # Example 2: JOIN query with aggregation
+  customer_order_summary: |
+    SELECT
+        c.CustomerID,
+        c.CustomerName,
+        COUNT(o.OrderID) as TotalOrders,
+        SUM(od.Quantity * od.UnitPrice) as TotalRevenue,
+        AVG(od.Quantity * od.UnitPrice) as AverageOrderValue
+    FROM Customers c
+    LEFT JOIN Orders o ON c.CustomerID = o.CustomerID
+    LEFT JOIN OrderDetails od ON o.OrderID = od.OrderID
+    WHERE o.OrderDate >= :start_date
+      AND o.OrderDate <= :end_date
+    GROUP BY c.CustomerID, c.CustomerName
+    HAVING COUNT(o.OrderID) > :min_orders
+    ORDER BY TotalRevenue DESC
+
+  # Example 3: Products for labeling
+  products_for_labeling: |
+    SELECT
+        p.ProductID,
+        p.ProductName,
+        p.CategoryID,
+        c.CategoryName,
+        p.UnitPrice,
+        p.UnitsInStock,
+        p.UnitsOnOrder,
+        p.Discontinued,
+        CASE
+            WHEN p.UnitsInStock = 0 THEN 'Out of Stock'
+            WHEN p.UnitsInStock < 10 THEN 'Low Stock'
+            ELSE 'In Stock'
+        END as StockStatus
+    FROM Products p
+    LEFT JOIN Categories c ON p.CategoryID = c.CategoryID
+    WHERE p.Discontinued = 0
+    ORDER BY p.ProductID
+
+  # Example 4: Time-series data
+  daily_sales: |
+    SELECT
+        CAST(OrderDate AS DATE) as Date,
+        COUNT(DISTINCT OrderID) as OrderCount,
+        COUNT(DISTINCT CustomerID) as UniqueCustomers,
+        SUM(od.Quantity * od.UnitPrice) as TotalSales,
+        AVG(od.Quantity * od.UnitPrice) as AverageOrderValue
+    FROM Orders o
+    JOIN OrderDetails od ON o.OrderID = od.OrderID
+    WHERE OrderDate >= :start_date
+      AND OrderDate <= :end_date
+    GROUP BY CAST(OrderDate AS DATE)
+    ORDER BY Date
+
+  # Example 5: Get specific order details
+  get_order_details: |
+    SELECT
+        o.OrderID,
+        o.OrderDate,
+        c.CustomerName,
+        e.FirstName + ' ' + e.LastName as EmployeeName,
+        p.ProductName,
+        od.Quantity,
+        od.UnitPrice,
+        od.Discount,
+        (od.Quantity * od.UnitPrice * (1 - od.Discount)) as LineTotal
+    FROM Orders o
+    JOIN Customers c ON o.CustomerID = c.CustomerID
+    JOIN Employees e ON o.EmployeeID = e.EmployeeID
+    JOIN OrderDetails od ON o.OrderID = od.OrderID
+    JOIN Products p ON od.ProductID = p.ProductID
+    WHERE o.OrderID = :order_id
+
+# Query metadata (optional)
+metadata:
+  get_customers:
+    description: "Retrieve customers by country"
+    parameters:
+      - name: country
+        type: string
+        required: true
+        example: "USA"
+
+  customer_order_summary:
+    description: "Get customer order summaries for a date range"
+    parameters:
+      - name: start_date
+        type: date
+        required: true
+        example: "2024-01-01"
+      - name: end_date
+        type: date
+        required: true
+        example: "2024-12-31"
+      - name: min_orders
+        type: integer
+        required: false
+        default: 1
+
+  products_for_labeling:
+    description: "Retrieve products that need labeling"
+    parameters: []
+
+  daily_sales:
+    description: "Get daily sales metrics"
+    parameters:
+      - name: start_date
+        type: date
+        required: true
+      - name: end_date
+        type: date
+        required: true
+
+  get_order_details:
+    description: "Get detailed information about a specific order"
+    parameters:
+      - name: order_id
+        type: integer
+        required: true
+        example: 10248

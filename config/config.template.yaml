@@ -1,0 +1,50 @@
+# SQLabelForge Configuration Template
+# Copy this file to config.yaml and customize for your environment
+
+# Database connection settings
+database:
+  server: "localhost"  # SQL Server hostname or IP
+  database: "YourDatabase"  # Database name
+  username: null  # SQL authentication username (or use environment variable)
+  password: null  # SQL authentication password (or use environment variable)
+  trusted_connection: false  # Set to true for Windows authentication
+
+  # Connection pool settings
+  pool_size: 5
+  max_overflow: 10
+  pool_timeout: 30
+
+# Data processor settings
+processor:
+  use_gpu: false  # Enable GPU acceleration (requires cupy)
+  chunk_size: 10000  # Number of rows to process at once
+
+# Labeling settings
+labeling:
+  default_strategy: "manual"  # Options: manual, rule_based, model_assisted, hybrid
+  default_label_type: "binary"  # Options: binary, multiclass, multilabel, regression, text
+
+  # Model-assisted labeling settings
+  model:
+    type: "oss20b"  # Options: oss20b, custom
+    model_path: null  # Path to model checkpoint
+    confidence_threshold: 0.8  # Minimum confidence for auto-labeling
+    batch_size: 32
+
+# Export settings
+export:
+  default_format: "csv"  # Options: csv, parquet, feather, json, excel
+  output_directory: "output"
+  include_unlabeled: false
+
+# Logging settings
+logging:
+  level: "INFO"  # Options: DEBUG, INFO, WARNING, ERROR, CRITICAL
+  log_file: "sqlabelforge.log"
+  log_to_console: true
+
+# API settings
+api:
+  host: "0.0.0.0"
+  port: 8000
+  reload: false  # Set to true for development

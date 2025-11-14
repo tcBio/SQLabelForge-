@@ -1,0 +1,21 @@
+# Core dependencies
+pyodbc>=4.0.0
+pandas>=2.0.0
+fastapi>=0.100.0
+uvicorn>=0.23.0
+pyyaml>=6.0
+python-dotenv>=1.0.0
+sqlalchemy>=2.0.0
+numpy>=1.24.0
+
+# Development dependencies (optional)
+# Uncomment to install development tools
+# pytest>=7.0.0
+# black>=23.0.0
+# pylint>=2.17.0
+# mypy>=1.0.0
+# isort>=5.12.0
+
+# GPU support (optional)
+# Uncomment to enable GPU acceleration
+# cupy>=12.0.0
