@@ -4,9 +4,11 @@ A high-performance, open-source tool for querying SQL Server databases and creat
 
 ## Features
 
+- 🎨 **Interactive Web UI** - Modern, intuitive interface for query building and data labeling
 - 🚀 **GPU-accelerated data processing** - Leverage GPU power for faster data transformations
 - 🔒 **Secure SQL query management** - Built-in SQL injection protection with parameterized queries
-- 🏷️ **Interactive labeling interface** - Multiple labeling strategies (manual, rule-based, model-assisted)
+- 🏷️ **Multiple labeling strategies** - Manual, rule-based, and model-assisted labeling
+- ⌨️ **Keyboard shortcuts** - Efficient labeling with customizable hotkeys
 - 🤖 **OSS20B model integration** - Automated labeling with confidence scoring
 - 📊 **Advanced data aggregation** - Powerful data processing and feature engineering
 - 💾 **Multiple export formats** - Export to CSV, Parquet, JSON, Excel, and Feather
@@ -42,10 +44,26 @@ pip install -e .
    cp config/queries.template.yaml config/queries.yaml
    ```
 
-4. **Run the example:**
+4. **Start the web UI:**
    ```bash
-   python examples/synthetic_data.py
+   uvicorn sqlabelforge.api.endpoints:app --reload
    ```
+
+   Then open http://localhost:8000 in your browser
+
+### Web UI Quick Tour
+
+The web UI provides a 4-step workflow:
+
+1. **Query Builder** - Write or load SQL queries with parameter support
+2. **Data Preview** - Review your dataset before labeling
+3. **Labeling Interface** - Label data with keyboard shortcuts and auto-advance
+4. **Export** - Download your labeled dataset in multiple formats
+
+**Keyboard Shortcuts:**
+- `←/→` - Navigate between records
+- `1-9` - Apply labels quickly
+- `Space` - Skip to next unlabeled record
 
 ## Usage
 
@@ -148,6 +166,9 @@ SQLabelForge/
 │   │   └── model_interface.py # Model integration
 │   ├── api/                   # REST API
 │   │   └── endpoints.py
+│   ├── ui/                    # Web UI
+│   │   ├── templates/         # HTML templates
+│   │   └── static/            # CSS, JS, assets
 │   └── utils/                 # Utilities
 │       └── config_loader.py
 ├── config/                    # Configuration templates

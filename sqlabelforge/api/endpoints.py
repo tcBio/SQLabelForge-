@@ -1,10 +1,13 @@
 """FastAPI endpoints for SQLabelForge."""
 
 import logging
+import uuid
+from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 from fastapi import FastAPI, HTTPException, Query
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, HTMLResponse
+from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
 from sqlabelforge.core.sql_connector import SQLConnector
@@ -25,6 +28,9 @@ app = FastAPI(
 config_loader: Optional[ConfigLoader] = None
 sql_connector: Optional[SQLConnector] = None
 data_processor: Optional[DataProcessor] = None
+
+# Session storage for datasets (in-memory, use Redis for production)
+sessions: Dict[str, Dict[str, Any]] = {}
 
 
 # Pydantic models for request/response
@@ -47,6 +53,20 @@ class RuleLabelRequest(BaseModel):
     data_id: str = Field(..., description="Identifier for the dataset")
     rules: List[Dict[str, Any]] = Field(..., description="List of labeling rules")
     label_column: str = Field(default="label", description="Name of label column")
+
+
+class RawQueryRequest(BaseModel):
+    """Request model for executing raw SQL queries."""
+    query: str = Field(..., description="Raw SQL query")
+    parameters: Optional[Dict[str, Any]] = Field(default=None, description="Query parameters")
+    timeout: int = Field(default=300, description="Query timeout in seconds")
+
+
+# Mount static files for UI
+UI_DIR = Path(__file__).parent.parent / "ui"
+if UI_DIR.exists():
+    app.mount("/static", StaticFiles(directory=str(UI_DIR / "static")), name="static")
+    logger.info(f"Mounted static files from {UI_DIR / 'static'}")
 
 
 @app.on_event("startup")
@@ -91,24 +111,29 @@ async def shutdown_event():
     logger.info("Application shutdown complete")
 
 
-@app.get("/")
+@app.get("/", response_class=HTMLResponse)
 async def root():
-    """Root endpoint with API information."""
-    return {
-        "name": "SQLabelForge API",
-        "version": "0.1.0",
-        "status": "running",
-        "endpoints": {
-            "health": "/health",
-            "queries": "/queries",
-            "execute": "/query/execute",
-            "label": "/label/manual",
-            "rule_label": "/label/rules",
+    """Serve the main UI."""
+    ui_template = UI_DIR / "templates" / "index.html"
+    if ui_template.exists():
+        with open(ui_template, 'r') as f:
+            return f.read()
+    else:
+        return {
+            "name": "SQLabelForge API",
+            "version": "0.1.0",
+            "status": "running",
+            "message": "UI not found, use /api endpoints directly",
+            "endpoints": {
+                "health": "/api/health",
+                "queries": "/api/queries",
+                "execute": "/api/query/execute",
+                "execute_raw": "/api/query/execute-raw",
+            }
         }
-    }
 
 
-@app.get("/health")
+@app.get("/api/health")
 async def health_check():
     """Health check endpoint."""
     try:
@@ -121,7 +146,7 @@ async def health_check():
         return {"status": "unhealthy", "error": str(e)}
 
 
-@app.get("/queries")
+@app.get("/api/queries")
 async def list_queries():
     """List available queries from configuration."""
     try:
@@ -138,7 +163,7 @@ async def list_queries():
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@app.post("/query/execute")
+@app.post("/api/query/execute")
 async def execute_query(request: QueryRequest):
     """Execute a SQL query and return results."""
     try:
@@ -162,9 +187,19 @@ async def execute_query(request: QueryRequest):
             timeout=request.timeout,
         )
 
+        # Create session
+        session_id = str(uuid.uuid4())
+        sessions[session_id] = {
+            "data": results,
+            "labels": {},
+            "query_name": request.query_name,
+        }
+
         return {
+            "session_id": session_id,
             "query_name": request.query_name,
             "row_count": len(results),
+            "column_count": len(results[0].keys()) if results else 0,
             "data": results,
         }
 
@@ -175,7 +210,41 @@ async def execute_query(request: QueryRequest):
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@app.post("/label/manual")
+@app.post("/api/query/execute-raw")
+async def execute_raw_query(request: RawQueryRequest):
+    """Execute a raw SQL query and return results."""
+    try:
+        if not sql_connector:
+            raise HTTPException(status_code=500, detail="SQL connector not initialized")
+
+        # Execute query
+        results = sql_connector.execute_query(
+            query=request.query,
+            params=request.parameters,
+            timeout=request.timeout,
+        )
+
+        # Create session
+        session_id = str(uuid.uuid4())
+        sessions[session_id] = {
+            "data": results,
+            "labels": {},
+            "query": request.query,
+        }
+
+        return {
+            "session_id": session_id,
+            "row_count": len(results),
+            "column_count": len(results[0].keys()) if results else 0,
+            "data": results,
+        }
+
+    except Exception as e:
+        logger.error(f"Query execution failed: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/api/label/manual")
 async def apply_manual_labels(request: LabelRequest):
     """Apply manual labels to dataset."""
     try:
@@ -193,7 +262,7 @@ async def apply_manual_labels(request: LabelRequest):
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@app.post("/label/rules")
+@app.post("/api/label/rules")
 async def apply_rule_labels(request: RuleLabelRequest):
     """Apply rule-based labels to dataset."""
     try:
@@ -211,7 +280,7 @@ async def apply_rule_labels(request: RuleLabelRequest):
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@app.get("/stats")
+@app.get("/api/stats")
 async def get_statistics():
     """Get system statistics."""
     try:

@@ -1,0 +1,312 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SQLabelForge - Data Labeling Interface</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body>
+    <div class="app-container">
+        <!-- Header -->
+        <header class="app-header">
+            <div class="header-content">
+                <h1>🔨 SQLabelForge</h1>
+                <p class="subtitle">SQL Data Labeling & Aggregation</p>
+            </div>
+            <div class="header-actions">
+                <button id="health-check-btn" class="btn btn-secondary">
+                    <span class="status-indicator" id="health-indicator">●</span> Health Check
+                </button>
+            </div>
+        </header>
+
+        <!-- Main Content -->
+        <div class="main-content">
+            <!-- Step Navigation -->
+            <nav class="step-nav">
+                <button class="step-btn active" data-step="query">
+                    <span class="step-number">1</span>
+                    <span class="step-label">Query</span>
+                </button>
+                <button class="step-btn" data-step="preview">
+                    <span class="step-number">2</span>
+                    <span class="step-label">Preview</span>
+                </button>
+                <button class="step-btn" data-step="label">
+                    <span class="step-number">3</span>
+                    <span class="step-label">Label</span>
+                </button>
+                <button class="step-btn" data-step="export">
+                    <span class="step-number">4</span>
+                    <span class="step-label">Export</span>
+                </button>
+            </nav>
+
+            <!-- Step 1: Query Builder -->
+            <section id="step-query" class="step-content active">
+                <div class="card">
+                    <div class="card-header">
+                        <h2>Build Your Query</h2>
+                        <div class="card-actions">
+                            <button id="load-saved-query-btn" class="btn btn-secondary">Load Saved Query</button>
+                        </div>
+                    </div>
+                    <div class="card-body">
+                        <div class="form-group">
+                            <label for="query-name">Query Name (Optional)</label>
+                            <input type="text" id="query-name" class="form-control" placeholder="e.g., customer_orders">
+                        </div>
+
+                        <div class="form-group">
+                            <label for="sql-query">SQL Query</label>
+                            <textarea id="sql-query" class="form-control code-editor" rows="10"
+                                placeholder="SELECT * FROM customers WHERE country = :country"></textarea>
+                            <small class="help-text">Use :parameter_name for parameterized queries (SQL injection protection)</small>
+                        </div>
+
+                        <div id="query-params-container" class="form-group" style="display: none;">
+                            <label>Query Parameters</label>
+                            <div id="query-params"></div>
+                        </div>
+
+                        <div class="form-actions">
+                            <button id="parse-params-btn" class="btn btn-secondary">Parse Parameters</button>
+                            <button id="execute-query-btn" class="btn btn-primary">Execute Query</button>
+                        </div>
+
+                        <div id="query-result-info" class="info-box" style="display: none;">
+                            <div class="info-content">
+                                <strong>Query executed successfully!</strong>
+                                <p id="query-result-text"></p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Step 2: Data Preview -->
+            <section id="step-preview" class="step-content">
+                <div class="card">
+                    <div class="card-header">
+                        <h2>Preview Your Data</h2>
+                        <div class="card-actions">
+                            <span id="preview-row-count" class="badge">0 rows</span>
+                        </div>
+                    </div>
+                    <div class="card-body">
+                        <div class="table-container">
+                            <table id="preview-table" class="data-table">
+                                <thead id="preview-thead"></thead>
+                                <tbody id="preview-tbody"></tbody>
+                            </table>
+                        </div>
+
+                        <div class="form-actions">
+                            <button id="back-to-query-btn" class="btn btn-secondary">Back to Query</button>
+                            <button id="proceed-to-label-btn" class="btn btn-primary">Proceed to Labeling</button>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Step 3: Labeling Interface -->
+            <section id="step-label" class="step-content">
+                <div class="labeling-container">
+                    <!-- Labeling Sidebar -->
+                    <aside class="labeling-sidebar">
+                        <div class="card">
+                            <div class="card-header">
+                                <h3>Label Configuration</h3>
+                            </div>
+                            <div class="card-body">
+                                <div class="form-group">
+                                    <label for="label-strategy">Strategy</label>
+                                    <select id="label-strategy" class="form-control">
+                                        <option value="manual">Manual</option>
+                                        <option value="rule_based">Rule-Based</option>
+                                        <option value="model_assisted">Model-Assisted</option>
+                                    </select>
+                                </div>
+
+                                <div class="form-group">
+                                    <label for="label-type">Label Type</label>
+                                    <select id="label-type" class="form-control">
+                                        <option value="binary">Binary</option>
+                                        <option value="multiclass">Multi-Class</option>
+                                        <option value="text">Text</option>
+                                    </select>
+                                </div>
+
+                                <div class="form-group">
+                                    <label>Define Labels</label>
+                                    <div id="label-definitions">
+                                        <div class="label-input-group">
+                                            <input type="text" class="form-control" placeholder="Label name">
+                                            <input type="text" class="form-control" placeholder="Shortcut (e.g., 1)">
+                                            <button class="btn-icon" onclick="removeLabelDefinition(this)">×</button>
+                                        </div>
+                                    </div>
+                                    <button id="add-label-btn" class="btn btn-secondary btn-small">+ Add Label</button>
+                                </div>
+
+                                <div class="stats-panel">
+                                    <h4>Progress</h4>
+                                    <div class="stat-item">
+                                        <span class="stat-label">Total Rows:</span>
+                                        <span class="stat-value" id="total-rows">0</span>
+                                    </div>
+                                    <div class="stat-item">
+                                        <span class="stat-label">Labeled:</span>
+                                        <span class="stat-value" id="labeled-rows">0</span>
+                                    </div>
+                                    <div class="stat-item">
+                                        <span class="stat-label">Remaining:</span>
+                                        <span class="stat-value" id="remaining-rows">0</span>
+                                    </div>
+                                    <div class="progress-bar">
+                                        <div id="label-progress" class="progress-fill"></div>
+                                    </div>
+                                </div>
+
+                                <div class="keyboard-shortcuts">
+                                    <h4>Keyboard Shortcuts</h4>
+                                    <div class="shortcut-item">
+                                        <kbd>←</kbd> <span>Previous</span>
+                                    </div>
+                                    <div class="shortcut-item">
+                                        <kbd>→</kbd> <span>Next</span>
+                                    </div>
+                                    <div class="shortcut-item">
+                                        <kbd>1-9</kbd> <span>Quick Label</span>
+                                    </div>
+                                    <div class="shortcut-item">
+                                        <kbd>Space</kbd> <span>Skip</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </aside>
+
+                    <!-- Labeling Main Area -->
+                    <main class="labeling-main">
+                        <div class="card">
+                            <div class="card-header">
+                                <h3>Current Record</h3>
+                                <div class="card-actions">
+                                    <span class="badge" id="current-record-badge">Row 0 / 0</span>
+                                </div>
+                            </div>
+                            <div class="card-body">
+                                <div id="current-record" class="record-view">
+                                    <p class="placeholder-text">Execute a query to start labeling</p>
+                                </div>
+
+                                <div class="label-actions">
+                                    <div id="label-buttons" class="label-button-group"></div>
+                                </div>
+
+                                <div class="navigation-actions">
+                                    <button id="prev-record-btn" class="btn btn-secondary">
+                                        ← Previous
+                                    </button>
+                                    <button id="skip-record-btn" class="btn btn-secondary">
+                                        Skip
+                                    </button>
+                                    <button id="next-record-btn" class="btn btn-secondary">
+                                        Next →
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Rule-Based Labeling Panel -->
+                        <div id="rule-based-panel" class="card" style="display: none;">
+                            <div class="card-header">
+                                <h3>Rule-Based Labeling</h3>
+                            </div>
+                            <div class="card-body">
+                                <div id="rules-container"></div>
+                                <button id="add-rule-btn" class="btn btn-secondary">+ Add Rule</button>
+                                <button id="apply-rules-btn" class="btn btn-primary">Apply Rules</button>
+                            </div>
+                        </div>
+                    </main>
+                </div>
+            </section>
+
+            <!-- Step 4: Export -->
+            <section id="step-export" class="step-content">
+                <div class="card">
+                    <div class="card-header">
+                        <h2>Export Your Dataset</h2>
+                    </div>
+                    <div class="card-body">
+                        <div class="export-summary">
+                            <h3>Dataset Summary</h3>
+                            <div class="summary-grid">
+                                <div class="summary-card">
+                                    <div class="summary-value" id="export-total-rows">0</div>
+                                    <div class="summary-label">Total Rows</div>
+                                </div>
+                                <div class="summary-card">
+                                    <div class="summary-value" id="export-labeled-rows">0</div>
+                                    <div class="summary-label">Labeled Rows</div>
+                                </div>
+                                <div class="summary-card">
+                                    <div class="summary-value" id="export-completion">0%</div>
+                                    <div class="summary-label">Completion</div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="export-format">Export Format</label>
+                            <select id="export-format" class="form-control">
+                                <option value="csv">CSV</option>
+                                <option value="parquet">Parquet</option>
+                                <option value="json">JSON</option>
+                                <option value="excel">Excel</option>
+                            </select>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="export-filename">Filename</label>
+                            <input type="text" id="export-filename" class="form-control"
+                                placeholder="labeled_dataset" value="labeled_dataset">
+                        </div>
+
+                        <div class="form-group">
+                            <label>
+                                <input type="checkbox" id="include-unlabeled" checked>
+                                Include unlabeled rows
+                            </label>
+                        </div>
+
+                        <div class="form-actions">
+                            <button id="back-to-label-btn" class="btn btn-secondary">Back to Labeling</button>
+                            <button id="export-dataset-btn" class="btn btn-primary">Download Dataset</button>
+                        </div>
+                    </div>
+                </div>
+            </section>
+        </div>
+
+        <!-- Footer -->
+        <footer class="app-footer">
+            <p>SQLabelForge v0.1.0 | <a href="https://github.com/yourusername/SQLabelForge" target="_blank">Documentation</a></p>
+        </footer>
+    </div>
+
+    <!-- Loading Overlay -->
+    <div id="loading-overlay" class="loading-overlay" style="display: none;">
+        <div class="spinner"></div>
+        <p>Processing...</p>
+    </div>
+
+    <!-- Toast Notifications -->
+    <div id="toast-container" class="toast-container"></div>
+
+    <script src="/static/js/app.js"></script>
+</body>
+</html>
